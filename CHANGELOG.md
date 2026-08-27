@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 — 2026-08-27
+
+- Hook output no longer cites `CLAUDE.md §0g`, a section that only existed in one
+  person's global config. It now reads `[git-flow]`.
+- CONTRIBUTING: spell out that a version bump is what makes a change reach installed
+  copies. `claude plugin update` compares versions, so a content-only change is
+  silently skipped on every machine that already has the plugin.
+
 ## 1.0.0 — 2026-08-27
 
 First packaged release. Previously a personal skill in `~/.claude/skills/`.

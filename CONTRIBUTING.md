@@ -41,9 +41,12 @@ regression, even if it reads better.
 2. Run `claude plugin validate . --strict` — it must exit 0.
 3. Install your working copy (below) and run `claude plugin details git-flow` to check the always-on token cost
    hasn't jumped. This is loaded into every session, so growth is a real cost.
-4. Bump `version` in **both** `.claude-plugin/plugin.json` and the matching entry in
-   `.claude-plugin/marketplace.json`. `claude plugin tag` validates that they agree
-   and will refuse to tag if they don't.
+4. Bump `version` in `.claude-plugin/plugin.json`. This is not bookkeeping — it is
+   what makes the change reach anyone. `claude plugin update` compares versions, so
+   a content change shipped without a bump is silently skipped on every machine that
+   already has the plugin: they stay on the old files and nothing tells them.
+   `claude plugin tag` validates the manifest against the marketplace entry and
+   refuses to tag if they disagree.
 5. Add a line to `CHANGELOG.md`.
 6. Test it for real on a scratch branch before opening the PR — see below.
 
