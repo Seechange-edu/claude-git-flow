@@ -2,7 +2,7 @@
 # git-flow-check.sh — SessionStart hook.
 # Prints a compact branch-health report for every git repo in the workspace so the
 # model knows, before touching anything, whether the working state fits the
-# prod-based branching workflow (global CLAUDE.md §0g / the `git-flow` skill).
+# prod-based branching workflow enforced by the `git-flow` skill.
 # Read-only apart from `git fetch`, which only updates remote-tracking refs.
 set -uo pipefail
 
@@ -84,7 +84,7 @@ done
 
 [ -z "$OUT" ] && exit 0
 
-printf '[git-flow §0g] Workspace branch state (remote refs just fetched):\n%s' "$OUT"
+printf '[git-flow] Workspace branch state (remote refs just fetched):\n%s' "$OUT"
 
 if [ -n "$FLAGS" ]; then
   printf 'Issues: %s\n' "$FLAGS"
