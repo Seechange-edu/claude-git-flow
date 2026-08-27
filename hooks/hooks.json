@@ -1,0 +1,18 @@
+{
+  "description": "git-flow branch-health report at session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/git-flow-check.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

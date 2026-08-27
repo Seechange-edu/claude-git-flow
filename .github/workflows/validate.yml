@@ -1,0 +1,51 @@
+name: Validate
+
+# Manifest validation is cheap and catches the failure mode that hurts most:
+# a plugin that installs but doesn't load, or a version in plugin.json that
+# disagrees with the marketplace entry so `claude plugin tag` refuses to release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code
+        run: npm i -g @anthropic-ai/claude-code
+
+      # --strict fails on unrecognized fields and missing metadata, not just on
+      # malformed JSON. That is the point — the runtime tolerates both, so a
+      # non-strict pass tells you very little.
+      - name: Validate manifests
+        run: claude plugin validate . --strict
+
+      # plugin.json and the marketplace entry drift apart easily, because they
+      # each carry their own copy of the version and description. --dry-run
+      # reports the disagreement without creating a tag.
+      - name: Check manifests agree
+        run: claude plugin tag --dry-run
+
+      - name: Hook script is executable and parses
+        run: |
+          test -x hooks/git-flow-check.sh || { echo "::error::hooks/git-flow-check.sh is not executable"; exit 1; }
+          bash -n hooks/git-flow-check.sh
+
+      # Every skill and command must have YAML frontmatter with a description —
+      # without it the component loads but never triggers, which is a silent
+      # failure rather than a loud one.
+      - name: Frontmatter present
+        run: |
+          fail=0
+          for f in skills/*/SKILL.md commands/*.md; do
+            head -1 "$f" | grep -q '^---$' || { echo "::error file=$f::missing frontmatter"; fail=1; }
+            grep -q '^description:' "$f" || { echo "::error file=$f::missing description"; fail=1; }
+          done
+          exit $fail

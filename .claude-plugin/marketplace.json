@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "seechange",
+  "description": "Claude Code plugins for the Seechange-edu engineering workflow.",
+  "owner": {
+    "name": "Seechange-edu"
+  },
+  "plugins": [
+    {
+      "name": "git-flow",
+      "source": "./",
+      "description": "The Seechange-edu shipping workflow: prod-based feature branches → dev → release branch → Release workflow → production. Enforces a visual plan and explicit approval before any git write or workflow dispatch.",
+      "author": {
+        "name": "Seechange-edu"
+      },
+      "category": "development",
+      "homepage": "https://github.com/Seechange-edu/claude-git-flow"
+    }
+  ]
+}
