@@ -1,5 +1,5 @@
 {
-  "description": "git-flow branch-health report at session start",
+  "description": "git-flow branch-health report at session start, and a wall-clock stamp on every git write",
   "hooks": {
     "SessionStart": [
       {
@@ -10,6 +10,19 @@
             "shell": "bash",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/git-flow-check.sh\"",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/git-flow-stamp.sh\"",
+            "timeout": 10
           }
         ]
       }

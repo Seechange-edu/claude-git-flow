@@ -33,10 +33,18 @@ jobs:
       - name: Check manifests agree
         run: claude plugin tag --dry-run
 
-      - name: Hook script is executable and parses
+      # Loop over every hook rather than naming one: a hook committed without the
+      # executable bit is installed and silently never runs, which is the exact
+      # failure this step exists to catch, and naming them one by one means the
+      # next hook added is the one that isn't checked.
+      - name: Hook scripts are executable and parse
         run: |
-          test -x hooks/git-flow-check.sh || { echo "::error::hooks/git-flow-check.sh is not executable"; exit 1; }
-          bash -n hooks/git-flow-check.sh
+          fail=0
+          for f in hooks/*.sh; do
+            test -x "$f" || { echo "::error file=$f::not executable"; fail=1; }
+            bash -n "$f" || fail=1
+          done
+          exit $fail
 
       # Every skill and command must have YAML frontmatter with a description —
       # without it the component loads but never triggers, which is a silent

@@ -30,6 +30,7 @@ To update later: `/plugin update git-flow@seechange`.
 | `/dev` | Get the current work onto `origin/dev` for testing. Plans first, always. |
 | `/prod` | Cut the release branch and PR this work into it. Stops before the deploy. |
 | SessionStart hook | One-line branch-health report per repo in the workspace — on a protected branch, behind `prod`, uncommitted, unpushed. Read-only apart from `git fetch`. |
+| PostToolUse hook | Stamps the wall-clock time of every push, PR open, PR merge, local merge and release-workflow dispatch, and appends it to `~/.claude/git-flow-timestamps.log`. |
 
 ## How it behaves
 
@@ -45,6 +46,35 @@ Three trigger words, and they mean exactly this:
 
 The trigger message is a request for a *plan*, never authorization to write.
 Approval is per-invocation — a "yes" on the last `/dev` does not authorize the next.
+
+## Timestamps
+
+Every git write is stamped as it happens, and the time is repeated in the closing
+report:
+
+```
+[git-flow] ⏱ PUSH ✓ — 2026-08-31 12:22:37 HKT (UTC+0800)
+           git push -u origin TNS-2073-thinking-lab
+[git-flow] ⏱ PR OPENED ✓ — 2026-08-31 12:22:41 HKT (UTC+0800)
+           gh pr create --base dev --head TNS-2073-thinking-lab
+```
+
+Covered: `git push`, `gh pr create`, `gh pr merge`, `git merge`, and both
+`gh workflow run` dispatches. A failed command is stamped `✗ FAILED` so an attempt
+is never read as a write. Read-only commands (`git log`, `gh pr view`,
+`git merge-base`, `--dry-run`) are not stamped.
+
+Plain `git commit` is deliberately left out — `git log` already records commit
+times. Push, PR and merge times are the ones that are gone once the session
+scrollback is, which is why they are also appended to
+`~/.claude/git-flow-timestamps.log`:
+
+```
+tail ~/.claude/git-flow-timestamps.log
+```
+
+Requires `jq` on `PATH` (ships with macOS 15+). Without it the hook exits silently
+rather than interfering.
 
 ## The rules it enforces
 

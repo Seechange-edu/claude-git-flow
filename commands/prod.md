@@ -35,4 +35,6 @@ Non-negotiable, from the skill:
    that dispatching it is the production deploy. Never dispatch `release.yml`
    yourself as part of this command — that needs a separate, explicit "publish"
    from the user.
-8. On any conflict or failure: stop and report. Do not improvise a recovery.
+8. Report the `[git-flow] ⏱` timestamp of every push, PR, merge and workflow
+   dispatch, quoted verbatim from the hook's stamps.
+9. On any conflict or failure: stop and report. Do not improvise a recovery.
