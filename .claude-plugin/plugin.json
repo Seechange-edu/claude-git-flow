@@ -1,6 +1,6 @@
 {
   "name": "git-flow",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "The Seechange-edu shipping workflow: prod-based feature branches → dev → release branch → Release workflow → production. Enforces a visual plan and explicit approval before any git write or workflow dispatch.",
   "author": {
     "name": "Seechange-edu"

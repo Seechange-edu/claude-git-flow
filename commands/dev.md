@@ -25,4 +25,5 @@ Non-negotiable, from the skill:
    PR'd into the release branch later, and the release pipeline prunes it itself
    once it reaches prod.
 
-Report each repo's PR URL and merge result at the end.
+Report each repo's PR URL, merge result, and the `[git-flow] ⏱` timestamp of every
+push, PR and merge — quoted verbatim from the hook's stamps, never re-derived.

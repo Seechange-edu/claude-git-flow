@@ -110,6 +110,23 @@ Flag before proposing, and ask how to proceed rather than fixing silently:
 | A `backmerge/*` branch exists on the remote | A previous release's automatic backmerge hit a conflict and is still open | Report it — it blocks nothing, but dev/uat are drifting from prod until a human resolves it |
 | Local branch vanished from the remote | The prune job deleted it after its release | Normal. Say so; don't re-push it |
 
+## Timestamps — every git write is stamped
+
+The plugin's `PostToolUse` hook stamps the wall-clock time of every push, PR
+open, PR merge, local merge, and release-workflow dispatch as it happens, and
+writes each one to `~/.claude/git-flow-timestamps.log`. You will see a
+`[git-flow] ⏱ …` line in the transcript and the same text as context.
+
+**Repeat those times verbatim in your closing report** — one line per write,
+next to the PR URL and merge result. Do not re-derive them with `date`; the
+stamp is taken at the moment the command returned, a later `date` is not.
+
+Push, PR and merge times are the part of this flow that is *not* recoverable
+afterwards — commit times live in `git log`, but the moment a branch reached the
+remote does not — which is why they are captured rather than reconstructed. A
+stamp marked `✗ FAILED` means the command errored: report it as an attempt, not
+as a write.
+
 ## Trigger: "dev" (or `/dev`)
 
 Meaning: get the current work onto `origin/dev` for testing. Repeatable — this
@@ -127,7 +144,8 @@ happens many times before a release. **Unchanged by the new release flow.**
      `--squash` or `--rebase` — they rewrite SHAs and break the later release PR)
 4. On conflict: **stop, do not resolve it silently.** Report the conflicting files
    and the two sides, then ask.
-5. Report each repo's PR URL and merge result.
+5. Report each repo's PR URL, merge result, and the `[git-flow] ⏱` timestamp
+   of every push, PR and merge, verbatim from the stamps.
 
 Note for later: **do not delete the feature branch after merging to dev.** It is
 the same branch that gets PR'd into the release branch. The prune job removes it
@@ -272,9 +290,9 @@ from `dev` and name the branch instead: `--ref dev -f branch="$BR"`.
 `release/`-prefix guard and its notes generation, and the whole reason the
 workflow exists is the token: the deploy trigger is keyed to `ACTION_TOKEN`.
 
-Then confirm it published, report the release URL, state plainly that the
-production deploy workflow is now running, and offer `gh run watch` rather than
-starting it uninvited:
+Then confirm it published, report the release URL **and the `[git-flow] ⏱`
+timestamp of the dispatch**, state plainly that the production deploy workflow is
+now running, and offer `gh run watch` rather than starting it uninvited:
 
 ```bash
 gh run list --repo <org>/<repo> --workflow=release.yml --limit 1 --json databaseId,status,conclusion
@@ -496,5 +514,7 @@ Approve? (reply "yes" / "yes but <change>" / "no")
   "publish" from the user, and only after the pre-flight passes.
 - **Never read release branches from `git branch -r`.** Prune deletes them
   remotely and the local cache lies. `git ls-remote`, or `fetch --prune` first.
+- **Never report a push, PR or merge without its timestamp.** The hook supplies it;
+  quote it rather than omitting it or inventing one.
 - If any step fails, stop the whole plan and report what completed and what didn't.
   Do not improvise a recovery.
