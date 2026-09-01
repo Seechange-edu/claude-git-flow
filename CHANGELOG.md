@@ -23,6 +23,23 @@
   re-created, never moved.
 - **Nothing is pushed.** A fresh task branch has no commits; `/dev` pushes it when
   there is something to test. That keeps the whole trigger local and reversible.
+### README, for people installing it fresh
+
+- Install section now says how to **verify** it worked (`claude plugin list`,
+  `claude plugin details git-flow`) and shows the session-start branch report you
+  should see, since "did that do anything?" was the first question every time.
+- New **"Where to keep your repos"**: the session hook and `/task` both scan one
+  level down from the workspace root, which is invisible until your repo is missing
+  from the list. Says what still works if you don't lay them out that way.
+- New **"A ticket, start to finish"** — the whole `/task` → `/dev` → `/prod` →
+  `publish` loop as a transcript, so the four triggers are learnable in one read.
+- Requirements is now a table of *why* and *how to check*, and marks which two of
+  the five you actually need. New **Troubleshooting** table for the failure modes
+  that look like bugs and aren't — chiefly a missing repo (no `origin/prod`, or
+  nested too deep) and an update that silently didn't apply (no version bump).
+
+### Also
+
 - New hard rules: never cut a task branch from `dev` or from current HEAD (a
   dev-based branch cannot be shipped without every unreleased dev commit — the
   failure the rescue reference exists to undo), and never invent a Jira key. A wrong

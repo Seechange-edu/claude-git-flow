@@ -12,15 +12,54 @@ something went wrong once.
 
 ## Install
 
+Two lines inside Claude Code, then a restart:
+
 ```
 /plugin marketplace add Seechange-edu/claude-git-flow
 /plugin install git-flow@seechange
 ```
 
-Restart Claude Code. That's it — the skill, both commands and the session hook come
-with it.
+That's everything — the skill, all three commands and both hooks come with it.
+Nothing to configure, no keys, no per-repo setup.
 
-To update later: `/plugin update git-flow@seechange`.
+**Check it landed.** In a terminal:
+
+```
+claude plugin list                  # git-flow@seechange should be enabled
+claude plugin details git-flow      # what it adds, and what it costs per session
+```
+
+**Then start a session in your workspace and you should see this before your first
+message is answered:**
+
+```
+[git-flow] Workspace branch state (remote refs just fetched):
+  cms-frontend [AIO-2045-class-recordings-filters]  3 behind prod  2 uncommitted
+  cms_backend [main]  ⚠ ON PROTECTED BRANCH
+```
+
+If that line never appears, see [Troubleshooting](#troubleshooting).
+
+**To update later:** `/plugin update git-flow@seechange`, then restart. Confirm with
+`claude plugin list` — if the version did not change, the update did not apply.
+
+### Where to keep your repos
+
+The session report and `/task` both scan **one level down from your workspace root**,
+so keep the repos side by side in one folder and open Claude Code at that folder:
+
+```
+~/work-dir/gh/                ← open Claude Code here
+├── cms-frontend/
+├── cms_backend/
+├── think-and-speak-backend/
+└── think-and-speak-frontend/
+```
+
+Repos nested deeper, or opened one at a time, still work for `/dev` and `/prod` —
+you just lose the cross-repo view, which is the thing that stops a backend shipping
+without its frontend. Any folder without an `origin/prod` is ignored, so unrelated
+projects sitting in the same workspace cost you nothing.
 
 ## What you get
 
@@ -51,6 +90,40 @@ Four trigger words, and they mean exactly this:
 
 The trigger message is a request for a *plan*, never authorization to write.
 Approval is per-invocation — a "yes" on the last `/dev` does not authorize the next.
+
+## A ticket, start to finish
+
+```
+You    /task            + a screenshot of AIO-2101 "Class recordings: filter by teacher"
+Claude reads the key and summary, asks which repos (multi-select), shows a plan, stops
+You    yes
+Claude branch AIO-2101-class-recordings-filter-by-teacher created from origin/prod
+       in cms_backend and cms-frontend. Nothing pushed.
+
+       …you write the code…
+
+You    dev
+Claude shows a plan — commit, push, PR to dev, in both repos — and stops
+You    yes
+Claude PR #412 and #98 merged to dev. Go test.
+
+       …QA passes…
+
+You    prod
+Claude shows a plan — cut release/vX.Y.Z, PR the same branch into it — and stops
+You    yes
+Claude release/v4.9.0 cut and contains PR #413. Publish here to deploy: <URL>
+
+You    publish
+Claude runs the pre-flight and dispatches Actions ▸ Release. Production is deploying.
+```
+
+Same branch throughout — never a second copy of a change, which is the whole point.
+Every step stops for you except `publish`, where your word *is* the approval.
+
+If you would rather type it in your own words, you can: "new task", "start this
+ticket", "push this to dev", "ship it", "cut a release" all land in the same place.
+The slash commands just skip the guessing.
 
 ## Timestamps
 
@@ -99,11 +172,32 @@ rather than interfering.
 
 ## Requirements
 
-- `git` and the `gh` CLI, authenticated against `Seechange-edu`
-- Repos using the `dev` / `uat` / `prod` + `release/vX.Y.Z` convention, with the
-  `release-branch.yml` and `release.yml` workflows installed
+| | Why | Check |
+|---|---|---|
+| `git` 2.23+ | `git switch` | `git --version` |
+| `gh` CLI, authenticated | every PR, merge and workflow dispatch | `gh auth status` |
+| Push access to the repos | opening and merging PRs | `gh repo view <org>/<repo>` |
+| `jq` on `PATH` | the timestamp hook (ships with macOS 15+) | `jq --version` |
+| Repos on the `dev`/`uat`/`prod` + `release/vX.Y.Z` convention, with `release-branch.yml` and `release.yml` | `/prod` and `publish` dispatch them | `gh workflow list` |
 
-The skill no-ops on repos with no `origin/prod`.
+Only the first two are needed to get value out of it. Without `jq` the timestamp hook
+exits silently rather than interfering; without the release workflows, `/task` and
+`/dev` still work and `/prod` will tell you what is missing.
+
+**The skill no-ops on any repo with no `origin/prod`**, so installing it cannot
+disturb your other projects.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| No `[git-flow]` branch report at session start | Plugin not enabled, or you restarted into a different workspace | `claude plugin list`; open Claude Code at the folder holding your repos |
+| Report appears but a repo is missing from it | That repo has no `origin/prod`, or it is nested more than one level deep | `git -C <repo> fetch origin prod`; move it beside the others |
+| `/task` doesn't offer the repo you wanted | Same — it only lists repos with an `origin/prod` | as above |
+| An update didn't change anything | The version was not bumped, so `/plugin update` skipped it | Ask the author to bump `plugin.json`; check with `claude plugin list` |
+| Claude asks to approve something you already approved | Working as intended — approval is per-invocation | Reply again; this is the one behaviour never to "fix" |
+| A push/PR is reported with no `⏱` timestamp | `jq` missing | `brew install jq`, restart |
+| It refuses to open a PR, citing a `-` line from `git cherry` | The same change exists twice under different SHAs | Do **not** merge past it — read the duplicate-SHA section in the skill |
 
 ## Contributing
 
