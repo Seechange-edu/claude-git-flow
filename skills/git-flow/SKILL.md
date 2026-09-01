@@ -1,6 +1,6 @@
 ---
 name: git-flow
-description: The prod-based branch → dev → release-branch → Release shipping workflow, driven by the "Release Branch" and "Release" GitHub Actions workflows, with a mandatory visual plan and user approval before any git write or workflow dispatch. Use when the user says a bare "dev" or "prod", types `/dev` or `/prod`, or says "push to dev", "merge to dev", "release to prod", "ship this", "cut a release", "make a release branch", "run the release workflow", "backmerge", "hotfix". Also use when they say "publish", "publish it", "can you publish", or paste a GitHub Actions `workflows/release.yml` or `releases/new?tag=…&target=…` URL — that is the authorized go-ahead to dispatch the Release workflow after a pre-flight check. Also use at the start of work in a git repo to check the current branch is fit for this workflow, and whenever a branch is on the wrong base, behind prod, or about to be pushed. Also use when a branch was cut from `dev` instead of `prod` and its work now has to reach prod without releasing all of dev, when a PR to dev is stuck CONFLICTING, when a PR turns out to be already on dev, or to roll back a release-branch merge made before review. Do NOT use for ordinary commits inside a feature branch, or for repos with no origin/prod.
+description: The prod-based branch → dev → release-branch → Release shipping workflow, driven by the "Release Branch" and "Release" GitHub Actions workflows, with a mandatory visual plan and user approval before any git write or workflow dispatch. Use when the user says a bare "dev" or "prod", types `/dev` or `/prod`, or says "push to dev", "merge to dev", "release to prod", "ship this", "cut a release", "make a release branch", "run the release workflow", "backmerge", "hotfix". Also use when they say "publish", "publish it", "can you publish", or paste a GitHub Actions `workflows/release.yml` or `releases/new?tag=…&target=…` URL — that is the authorized go-ahead to dispatch the Release workflow after a pre-flight check. Also use when the user says "new task", "new ticket", "start this ticket", or pastes a Jira ticket as text or a screenshot and wants a branch for it — that cuts the prod-based feature branch across the chosen repos, under the same plan-and-approve gate. Also use at the start of work in a git repo to check the current branch is fit for this workflow, and whenever a branch is on the wrong base, behind prod, or about to be pushed. Also use when a branch was cut from `dev` instead of `prod` and its work now has to reach prod without releasing all of dev, when a PR to dev is stuck CONFLICTING, when a PR turns out to be already on dev, or to roll back a release-branch merge made before review. Do NOT use for ordinary commits inside a feature branch, or for repos with no origin/prod.
 ---
 
 # git-flow
@@ -126,6 +126,99 @@ afterwards — commit times live in `git log`, but the moment a branch reached t
 remote does not — which is why they are captured rather than reconstructed. A
 stamp marked `✗ FAILED` means the command errored: report it as an attempt, not
 as a write.
+
+## Trigger: "new task" (or `/task`)
+
+Meaning: a Jira ticket has arrived — as a screenshot, pasted text, a bare `KEY-123`,
+or a browse URL — and the work needs a branch. Fires on "new task", "new ticket",
+"start this ticket", "branch for this", or a Jira screenshot pasted with no other
+instruction. This is the *start* of the flow; `/dev` and `/prod` come later.
+
+Writes nothing until approved, same as every other trigger.
+
+**1. Read the ticket** — you need exactly two things: the issue **key(s)** and the
+**summary**.
+
+| Input | How to read it |
+|---|---|
+| Screenshot | Read the key and summary off the image. If either is illegible, ask — never guess a key. |
+| Pasted text | Take the `[A-Z]+-[0-9]+` key(s) and the title line. |
+| Bare key or browse URL | Fetch the summary with an Atlassian tool if one is available; otherwise ask the user for the title. |
+
+A wrong key silently detaches the branch from the ticket, and nothing downstream
+catches it — the release notes just quietly reference the wrong work.
+
+**2. Derive the branch name** — the workspace convention, read off the live remotes:
+`<KEY>-<kebab-summary>`, e.g. `TNS-1996-bulk-generation-in-thinking-lab`,
+`AIO-2045-class-recordings-filters`.
+
+- key uppercase and verbatim; several keys joined by `-` (`TNS-1942-TNS-2005-…`)
+- summary lowercased, each run of non-alphanumerics → one `-`, ends trimmed
+- cap around 50 characters, trimming whole words off the end, never mid-word
+- **the same branch name in every repo.** One ticket, one branch name — that is what
+  makes the frontend and backend halves of a change reviewable, and releasable, as
+  one thing.
+
+Show the derived name in the plan; the user can rename it in their approval.
+
+**3. Find the candidate repos, then ask which ones.** One level deep from the
+workspace root, only repos that actually use this workflow:
+
+```bash
+for d in "$WS"/*/; do
+  [ -d "${d}.git" ] || continue
+  git -C "$d" show-ref --verify --quiet refs/remotes/origin/prod || continue
+  basename "$d"
+done
+```
+
+Ask as a **multi-select** question listing exactly those repos. Never assume the set
+from the ticket text — a ticket that says "CMS" is not evidence about which repos the
+fix lands in. If the workspace has only one such repo, say so and skip the question.
+
+**4. Run Step 0 on the chosen repos, plus the safe-to-branch checks:**
+
+```bash
+git -C <repo> fetch --prune --quiet origin prod
+git -C <repo> rev-parse --short origin/prod                                  # base SHA for the plan
+git -C <repo> show-ref --verify --quiet "refs/heads/<name>" && echo "EXISTS locally"
+git -C <repo> ls-remote --heads origin "refs/heads/<name>" | grep -q . && echo "EXISTS on remote"
+git -C <repo> status --porcelain | wc -l                                     # dirty → create, don't switch
+```
+
+A branch that already exists is **not** re-created and **not** moved. Report it, skip
+that repo, and offer to switch to it instead.
+
+**5. Render the plan (format below) and stop.**
+
+**6. On approval only — create from `origin/prod` without touching the worktree:**
+
+```bash
+git -C <repo> branch --no-track <name> origin/prod   # never `checkout -b`, never without --no-track
+git -C <repo> switch <name>                          # only where status --porcelain was empty
+```
+
+Both flags are load-bearing, and both were probed:
+
+- **`git branch` rather than `checkout -b`** creates the ref and leaves the working
+  tree untouched. `checkout -b` onto a dirty repo exits 1 with *"Your local changes
+  would be overwritten"* whenever the branch point differs in a modified file, and
+  otherwise carries those edits onto the `prod` base. `git branch` gets the branch made
+  either way. Report dirty repos as created-but-not-switched, hand over the one
+  `git switch` command, and **never stash on the user's behalf**.
+- **`--no-track` is not cosmetic.** Branching off `origin/prod` without it sets the new
+  branch's upstream *to* `origin/prod` — probed: `branch.<name>.merge` comes back
+  `refs/heads/prod`, so a bare `git push` from that branch targets **prod**, the single
+  thing this whole skill exists to prevent. `--no-track` leaves it with no upstream;
+  `/dev`'s `push -u` sets the right one later.
+
+Re-running `git branch` on an existing name exits 128 (*"a branch named … already
+exists"*) rather than moving it — which is why an existing branch is reported and
+skipped, not repaired.
+
+**7. Do not push.** A fresh task branch has no commits; `/dev` pushes it when there is
+something to test. Report per repo: created / already existed / created-not-switched,
+and the `origin/prod` SHA each branch starts from.
 
 ## Trigger: "dev" (or `/dev`)
 
@@ -428,6 +521,32 @@ Render this before **any** git write or workflow dispatch. Concrete commands, re
 numbers from Step 0, never a vague summary. One block per repo.
 
 ```
+╔═ GIT PLAN — "new task" ══════════════════════════════════════╗
+
+ ticket  AIO-2101   "Class recordings: filter by teacher"
+ branch  AIO-2101-class-recordings-filter-by-teacher   (same name in both repos)
+ base    origin/prod, freshly fetched
+
+   cms_backend    prod @ 4f2a91c   clean            → create + switch
+   cms-frontend   prod @ 8b1c034   2 uncommitted    → create, stay put
+
+     origin/prod        ●──●──●
+                                ╲
+     AIO-2101-…                  ○  new · 0 commits · not pushed
+
+   WILL DO
+     1. git -C cms_backend  branch --no-track AIO-2101-… origin/prod
+     2. git -C cms_backend  switch AIO-2101-…
+     3. git -C cms-frontend branch --no-track AIO-2101-… origin/prod  ← no switch, dirty
+
+   WON'T TOUCH   any remote · origin/dev · origin/prod · your uncommitted files
+
+╚══════════════════════════════════════════════════════════════╝
+
+Approve? (reply "yes" / "yes but <change>" / "no")
+```
+
+```
 ╔═ GIT PLAN — "dev" ═══════════════════════════════════════════╗
 
  think-and-speak-backend
@@ -486,6 +605,15 @@ Approve? (reply "yes" / "yes but <change>" / "no")
 ## Hard rules
 
 - **Never push to `dev`, `uat`, or `prod` directly.** Always a branch + PR.
+- **Never cut a task branch from anything but `origin/prod`** — not from `dev`, not
+  from whatever HEAD happens to be. A dev-based branch inherits every unreleased dev
+  commit as an ancestor and cannot then be shipped alone; see the rescue section for
+  what that costs to undo.
+- **Never `checkout -b` a new task branch, and never omit `--no-track`.**
+  `git branch --no-track` + a conditional `git switch` — so uncommitted work is never
+  carried onto a new base or stashed unasked, and the branch never inherits
+  `origin/prod` as its upstream, which would make a bare `git push` push to prod.
+- **Never invent or auto-correct a Jira key.** If it is unreadable, ask.
 - **Never PR into `prod`.** Not for a feature, not for a fix, not to repair a
   missing auto-merge. `prod` is written only by the release automation. The route
   to production is always: release branch → Release workflow → automation updates
