@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.2.0 — 2026-09-01
+
+### `/task` — start a Jira ticket
+
+- New **"new task"** trigger and `/task` command. Give it a Jira ticket as a
+  screenshot, pasted text, a bare `KEY-123` or a browse URL; it reads the key and
+  summary, derives one `<KEY>-<kebab-summary>` branch name, asks which workspace
+  repos the ticket applies to, renders the usual approval plan, and only then cuts
+  the branch from `origin/prod` in each one.
+- One branch name across every repo, because the frontend and backend halves of a
+  ticket have to be reviewable and releasable as one thing.
+- **Branches are created with `git branch`, not `checkout -b`**, and switched to only
+  where the worktree is clean. `checkout -b` on a dirty repo either refuses or drags
+  the uncommitted edits onto a `prod` base — the branch gets made either way, and the
+  user is told which repos they are still standing in. Nothing is ever stashed for them.
+- **`--no-track` on every branch creation.** Probed: `git branch <name> origin/prod`
+  without it sets `branch.<name>.merge` to `refs/heads/prod`, so a bare `git push`
+  from a fresh task branch would push straight to **prod**. `--no-track` leaves the
+  branch with no upstream and `/dev`'s `push -u` sets the right one later.
+- An existing branch of that name, local or remote, is reported and skipped — never
+  re-created, never moved.
+- **Nothing is pushed.** A fresh task branch has no commits; `/dev` pushes it when
+  there is something to test. That keeps the whole trigger local and reversible.
+- New hard rules: never cut a task branch from `dev` or from current HEAD (a
+  dev-based branch cannot be shipped without every unreleased dev commit — the
+  failure the rescue reference exists to undo), and never invent a Jira key. A wrong
+  key detaches the branch from the ticket and nothing downstream catches it.
+
 ## 1.1.0 — 2026-08-31
 
 ### Timestamps on every git write

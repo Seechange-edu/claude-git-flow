@@ -26,7 +26,8 @@ To update later: `/plugin update git-flow@seechange`.
 
 | Component | What it does |
 |---|---|
-| `git-flow` skill | The full workflow. Triggers on a bare "dev" / "prod" / "publish", or on "ship it", "cut a release", "backmerge", "hotfix". |
+| `git-flow` skill | The full workflow. Triggers on a bare "dev" / "prod" / "publish" / "new task", or on "ship it", "cut a release", "backmerge", "hotfix". |
+| `/task` | Start a Jira ticket. Reads the key + summary from a screenshot, pasted text or a URL, asks which repos, and cuts one prod-based branch in each. Plans first, always. |
 | `/dev` | Get the current work onto `origin/dev` for testing. Plans first, always. |
 | `/prod` | Cut the release branch and PR this work into it. Stops before the deploy. |
 | SessionStart hook | One-line branch-health report per repo in the workspace — on a protected branch, behind `prod`, uncommitted, unpushed. Read-only apart from `git fetch`. |
@@ -34,8 +35,12 @@ To update later: `/plugin update git-flow@seechange`.
 
 ## How it behaves
 
-Three trigger words, and they mean exactly this:
+Four trigger words, and they mean exactly this:
 
+- **"new task"** or `/task` → paste a Jira ticket (screenshot, text, `KEY-123` or a
+  browse URL). It derives one branch name from the key and summary, asks which repos
+  in the workspace it applies to, then renders a plan and stops. On approval it
+  creates that branch from `origin/prod` in each repo — locally, nothing pushed.
 - **"dev"** or `/dev` → render a plan, stop for approval, then commit → push → PR to
   `dev` → merge only if `CLEAN`.
 - **"prod"** or `/prod` → render a plan, stop for approval, then dispatch
@@ -79,6 +84,10 @@ rather than interfering.
 ## The rules it enforces
 
 - Never push to `dev` / `uat` / `prod` directly. Always a branch + PR.
+- Never cut a task branch from `dev` or from current HEAD — always from `origin/prod`.
+- Never `checkout -b` onto a dirty worktree, and never stash on your behalf.
+- Never leave a new branch tracking `origin/prod` — that turns a bare `git push`
+  into a push to prod.
 - Never PR **into** `prod`. It is written only by the release automation.
 - Never cut a release branch or create a release by hand — a release not published
   by `ACTION_TOKEN` does not trigger the deploy.
